@@ -1,8 +1,12 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.didalgolab.intellijmcp</id>
-    <name>intellij-mcp</name>
-    <vendor>didalgolab</vendor>
+    <id>com.didalgo.intellij.mcp</id>
+    <name>IDE MCP Server</name>
+    <vendor>DidalgoLab</vendor>
+
+    <description>
+        Embeds an MCP server (Spring AI) in the IDE and exposes tools for integration.
+    </description>
 
     <depends>com.intellij.modules.platform</depends>
 
@@ -11,5 +15,6 @@
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow factoryClass="com.github.didalgolab.intellijmcp.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
         <postStartupActivity implementation="com.github.didalgolab.intellijmcp.startup.MyProjectActivity" />
+        <postStartupActivity implementation="com.didalgo.intellij.mcp.StartMcpServerActivity"/>
     </extensions>
 </idea-plugin>
