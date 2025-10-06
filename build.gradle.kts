@@ -50,9 +50,20 @@ dependencies {
         testFramework(TestFrameworkType.Platform)
     }
 
-    implementation("org.springframework.ai:spring-ai-starter-mcp-server-webflux:1.0.3")
-    implementation("org.springframework.boot:spring-boot:3.5.0")
-    implementation("org.springframework.boot:spring-boot-autoconfigure:3.5.0")
+    implementation("org.springframework.ai:spring-ai-starter-mcp-server-webflux:1.0.3"){
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-databind")
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-annotations")
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-core")
+        exclude(group = "com.fasterxml.jackson.datatype", module = "jackson-datatype-jdk8")
+        exclude(group = "com.fasterxml.jackson.datatype", module = "jackson-datatype-jsr310")
+        exclude(group = "com.fasterxml.jackson.module", module = "jackson-module-kotlin")
+    }
+    compileOnly("com.fasterxml.jackson.core:jackson-databind:2.17.2")
+    compileOnly("com.fasterxml.jackson.core:jackson-annotations:2.17.2")
+    compileOnly("com.fasterxml.jackson.core:jackson-core:2.17.2")
+    compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2")
+    compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2")
+    compileOnly("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.2")
 }
 
 // Configure IntelliJ Platform Gradle Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-extension.html

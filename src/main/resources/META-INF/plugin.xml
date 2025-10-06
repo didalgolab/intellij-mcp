@@ -12,9 +12,12 @@
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
+    <applicationListeners>
+        <listener class="com.didalgo.intellij.mcp.StartupHook" topic="com.intellij.ide.AppLifecycleListener"/>
+    </applicationListeners>
+
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow factoryClass="com.github.didalgolab.intellijmcp.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
         <postStartupActivity implementation="com.github.didalgolab.intellijmcp.startup.MyProjectActivity" />
-        <postStartupActivity implementation="com.didalgo.intellij.mcp.StartMcpServerActivity"/>
     </extensions>
 </idea-plugin>

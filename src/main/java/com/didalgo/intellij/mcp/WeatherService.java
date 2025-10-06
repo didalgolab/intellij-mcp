@@ -15,6 +15,7 @@
 */
 package com.didalgo.intellij.mcp;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -22,12 +23,16 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectLocator;
+import com.intellij.openapi.project.ProjectManager;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VirtualFile;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-@Service
 public class WeatherService {
 
 	private static final String BASE_URL = "https://api.weather.gov";
@@ -83,63 +88,27 @@ public class WeatherService {
 		}
 	}
 
-	/**
-	 * Get forecast for a specific latitude/longitude
-	 * @param latitude Latitude
-	 * @param longitude Longitude
-	 * @return The forecast for the given location
-	 * @throws RestClientException if the request fails
-	 */
-	@Tool(description = "Get weather forecast for a specific latitude/longitude")
-	public String getWeatherForecastByLocation(double latitude, double longitude) {
+    @Tool(description = "Finds project by name")
+    public static String findProjectByRoot(String rootDirPath) {
+        Path rootDir = Path.of(rootDirPath);
+        VirtualFile root = LocalFileSystem.getInstance().findFileByNioFile(rootDir);
+        if (root == null)
+            root = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(rootDir);
+        if (root == null)
+            return null;
 
-		var points = restClient.get()
-			.uri("/points/{latitude},{longitude}", latitude, longitude)
-			.retrieve()
-			.body(Points.class);
+        // Returns the best matching open project for this directory (or null)
+        Project p = ProjectLocator.getInstance().guessProjectForFile(root);
+        if (p != null)
+            return p.getName();
 
-		var forecast = restClient.get().uri(points.properties().forecast()).retrieve().body(Forecast.class);
-
-		String forecastText = forecast.properties().periods().stream().map(p -> {
-			return String.format("""
-					%s:
-					Temperature: %s %s
-					Wind: %s %s
-					Forecast: %s
-					""", p.name(), p.temperature(), p.temperatureUnit(), p.windSpeed(), p.windDirection(),
-					p.detailedForecast());
-		}).collect(Collectors.joining());
-
-		return forecastText;
-	}
-
-	/**
-	 * Get alerts for a specific area
-	 * @param state Area code. Two-letter US state code (e.g. CA, NY)
-	 * @return Human readable alert information
-	 * @throws RestClientException if the request fails
-	 */
-	@Tool(description = "Get weather alerts for a US state. Input is Two-letter US state code (e.g. CA, NY)")
-	public String getAlerts(String state) {
-		Alert alert = restClient.get().uri("/alerts/active/area/{state}", state).retrieve().body(Alert.class);
-
-		return alert.features()
-			.stream()
-			.map(f -> String.format("""
-					Event: %s
-					Area: %s
-					Severity: %s
-					Description: %s
-					Instructions: %s
-					""", f.properties().event(), f.properties.areaDesc(), f.properties.severity(),
-					f.properties.description(), f.properties.instruction()))
-			.collect(Collectors.joining("\n"));
-	}
-
-	public static void main(String[] args) {
-		WeatherService client = new WeatherService();
-		System.out.println(client.getWeatherForecastByLocation(47.6062, -122.3321));
-		System.out.println(client.getAlerts("NY"));
-	}
-
+        // Fallback: pick from all open projects by base path
+        for (Project candidate : ProjectManager.getInstance().getOpenProjects()) {
+            String base = candidate.getBasePath();
+            if (base != null && rootDir.toAbsolutePath().normalize().toString().equals(Path.of(base).toAbsolutePath().normalize().toString())) {
+                return candidate.getName();
+            }
+        }
+        return null;
+    }
 }

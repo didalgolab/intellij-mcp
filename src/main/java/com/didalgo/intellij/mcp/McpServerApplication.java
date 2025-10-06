@@ -1,31 +1,49 @@
 package com.didalgo.intellij.mcp;
 
-import com.intellij.openapi.diagnostic.Logger;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.web.context.WebServerInitializedEvent;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.jackson.JsonMixinModuleEntries;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.event.EventListener;
+import org.springframework.context.annotation.Primary;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
-@SpringBootApplication
+@SpringBootConfiguration
+@EnableAutoConfiguration
 public class McpServerApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(McpServerApplication.class, args);
-	}
+    @Bean
+    @Primary
+    JsonMixinModuleEntries customJsonMixins() {
+        // Empty mapping: disables any @JsonMixin registration
+        return JsonMixinModuleEntries.create(builder -> {
+            // no entries
+            // builder.add(TargetClass.class, MixinClass.class); // opt-in if ever needed
+        });
+    }
+
+    @Bean
+    static BeanFactoryPostProcessor removeJsonMixinsBean() {
+        return bf -> {
+            if (bf instanceof BeanDefinitionRegistry reg &&
+                    reg.containsBeanDefinition("jsonMixinModuleEntries")) {
+                reg.removeBeanDefinition("jsonMixinModuleEntries");
+            }
+        };
+    }
+
+    @Bean
+    public WeatherService weatherService() {
+        return new WeatherService();
+    }
 
 	@Bean
 	public ToolCallbackProvider weatherTools(WeatherService weatherService) {
 		return MethodToolCallbackProvider.builder().toolObjects(weatherService).build();
-	}
-
-	public record TextInput(String input) {
 	}
 
 	@Bean
@@ -35,25 +53,4 @@ public class McpServerApplication {
 			.description("Put the text to upper case")
 			.build();
 	}
-
-    @Bean
-    public PortsListener portsListener() {
-        return new PortsListener(new AtomicInteger(0));
-    }
-
-    public static class PortsListener {
-        private final AtomicInteger portRef;
-
-        PortsListener(AtomicInteger ref) {
-            this.portRef = ref;
-        }
-
-        @EventListener
-        public void onWebServerReady(WebServerInitializedEvent evt) {
-            int p = evt.getWebServer().getPort();
-            portRef.set(p);
-            Logger.getInstance(McpServerService.class)
-                    .info("MCP SSE endpoint is at http://127.0.0.1:" + p + "/sse");
-        }
-    }
 }
