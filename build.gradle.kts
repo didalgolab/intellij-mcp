@@ -58,9 +58,9 @@ dependencies {
         exclude(group = "com.fasterxml.jackson.datatype", module = "jackson-datatype-jsr310")
         exclude(group = "com.fasterxml.jackson.module", module = "jackson-module-kotlin")
     }
-    compileOnly("com.fasterxml.jackson.core:jackson-databind:2.17.2")
-    compileOnly("com.fasterxml.jackson.core:jackson-annotations:2.17.2")
-    compileOnly("com.fasterxml.jackson.core:jackson-core:2.17.2")
+    compileOnly("com.fasterxml.jackson.core:jackson-databind:2.20")
+    compileOnly("com.fasterxml.jackson.core:jackson-annotations:2.20")
+    compileOnly("com.fasterxml.jackson.core:jackson-core:2.20")
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2")
     compileOnly("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2")
     compileOnly("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.2")
