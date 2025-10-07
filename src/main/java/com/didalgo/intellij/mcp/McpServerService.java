@@ -33,7 +33,11 @@ public final class McpServerService implements Disposable {
 
             var resourceLoader = new DefaultResourceLoader(pluginClassLoader);
             ctx = new SpringApplicationBuilder(resourceLoader, McpServerApplication.class)
-                    .properties(Map.of("server.port", 59452))
+                    .properties(Map.of(
+                            "server.port", 59452,
+                            "server.shutdown", "immediate",
+                            "spring.lifecycle.timeout-per-shutdown-phase", "0s"
+                    ))
                     .listeners(onWebServerReady())
                     .run();
         } finally {
@@ -41,6 +45,21 @@ public final class McpServerService implements Disposable {
         }
         LOG.info("MCP server starting...");
         // TODO: display port
+    }
+
+    public void stop() {
+        var current = ctx;
+        if (current != null) {
+            try {
+                if (current.isActive()) {
+                    LOG.info("MCP server shutting down...");
+                }
+                current.close();
+            } catch (Exception ignore) { }
+            finally {
+                ctx = null;
+            }
+        }
     }
 
     private ApplicationListener<WebServerInitializedEvent> onWebServerReady() {
@@ -55,11 +74,6 @@ public final class McpServerService implements Disposable {
 
     @Override
     public void dispose() {
-        if (ctx != null) {
-            try {
-                ctx.close();
-            } catch (Exception ignore) { }
-            ctx = null;
-        }
+        stop();
     }
 }

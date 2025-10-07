@@ -11,4 +11,16 @@ public final class StartupHook implements AppLifecycleListener {
     public void appFrameCreated(@NotNull List<String> commandLineArgs) {
         ApplicationManager.getApplication().getService(McpServerService.class).start();
     }
+
+    @Override
+    public void appClosing() {
+        var app = ApplicationManager.getApplication();
+        app.executeOnPooledThread(() -> app.getService(McpServerService.class).stop());
+    }
+
+    @Override
+    public void appWillBeClosed(boolean isRestart) {
+        var app = ApplicationManager.getApplication();
+        app.executeOnPooledThread(() -> app.getService(McpServerService.class).stop());
+    }
 }
