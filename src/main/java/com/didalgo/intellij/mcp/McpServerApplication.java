@@ -1,5 +1,6 @@
 package com.didalgo.intellij.mcp;
 
+import com.didalgo.intellij.mcp.SymbolSourceLookupTool.SymbolLookupInput;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.function.FunctionToolCallback;
@@ -41,16 +42,21 @@ public class McpServerApplication {
         return new WeatherService();
     }
 
-	@Bean
-	public ToolCallbackProvider weatherTools(WeatherService weatherService) {
-		return MethodToolCallbackProvider.builder().toolObjects(weatherService).build();
-	}
+    @Bean
+    public SymbolSourceLookupTool symbolSourceLookupTool() {
+        return new SymbolSourceLookupTool();
+    }
 
-	@Bean
-	public ToolCallback toUpperCase() {
-		return FunctionToolCallback.builder("toUpperCase", (TextInput input) -> input.input().toUpperCase())
-			.inputType(TextInput.class)
-			.description("Put the text to upper case")
-			.build();
-	}
+    @Bean
+    public ToolCallbackProvider weatherTools(WeatherService weatherService) {
+        return MethodToolCallbackProvider.builder().toolObjects(weatherService).build();
+    }
+
+    @Bean
+    public ToolCallback getSourceCode(SymbolSourceLookupTool tool) {
+        return FunctionToolCallback.builder("ide_get_source_code", tool::resolveSymbol)
+                .inputType(SymbolLookupInput.class)
+                .description("Resolves classes, members, or resources to source snippets from an IDE project.")
+                .build();
+    }
 }
