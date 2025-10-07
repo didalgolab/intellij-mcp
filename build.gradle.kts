@@ -50,7 +50,7 @@ dependencies {
         testFramework(TestFrameworkType.Platform)
     }
 
-    implementation("org.springframework.ai:spring-ai-starter-mcp-server-webflux:1.0.3"){
+    implementation("org.springframework.ai:spring-ai-starter-mcp-server-webflux:1.1.0-M3"){
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-databind")
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-annotations")
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-core")

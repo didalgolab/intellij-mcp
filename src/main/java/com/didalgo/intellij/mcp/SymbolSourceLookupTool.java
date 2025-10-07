@@ -9,27 +9,26 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
-import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 
 public class SymbolSourceLookupTool {
 
     public SymbolSourceLookup.Result resolveSymbol(SymbolLookupInput input) {
-        if (input == null) {
+        if (input == null)
             return missingInputResult("`input` payload is required.");
-        }
-        if (input.symbolName == null || input.symbolName.isBlank()) {
+        if (input.symbolName() == null || input.symbolName().isBlank())
             return missingInputResult("`symbolName` is required.");
-        }
-        Project project = resolveProject(input);
+
+        var project = resolveProject(input);
         if (project == null) {
             return new SymbolSourceLookup.Result(
                     SymbolSourceLookup.Status.NOT_FOUND,
                     "Unable to locate an open IntelliJ project for the request.",
                     null,
                     null,
-                    input.symbolName,
+                    input.symbolName(),
                     SymbolSourceLookup.SymbolKind.UNKNOWN,
-                    input.moduleName,
+                    input.moduleName(),
                     null,
                     0,
                     0,
@@ -39,17 +38,17 @@ public class SymbolSourceLookupTool {
                     "Specify projectName or open a single project.");
         }
         SymbolSourceLookup.Request request = new SymbolSourceLookup.Request(
-                input.symbolName,
-                input.methodName,
-                input.methodParamTypes,
-                input.fieldName,
-                input.moduleName,
-                input.lineStart,
-                input.lineEnd,
-                Objects.requireNonNullElse(input.preferSource, Boolean.TRUE),
-                Objects.requireNonNullElse(input.includeInherited, Boolean.TRUE),
-                Objects.requireNonNullElse(input.forceDecompiled, Boolean.FALSE),
-                Objects.requireNonNullElse(input.allowResourceLookup, Boolean.TRUE));
+                input.symbolName(),
+                input.methodName(),
+                input.methodParamTypes(),
+                input.fieldName(),
+                input.moduleName(),
+                input.lineStart(),
+                input.lineEnd(),
+                Objects.requireNonNullElse(input.preferSource(), Boolean.TRUE),
+                Objects.requireNonNullElse(input.includeInherited(), Boolean.TRUE),
+                Objects.requireNonNullElse(input.forceDecompiled(), Boolean.FALSE),
+                Objects.requireNonNullElse(input.allowResourceLookup(), Boolean.TRUE));
         return SymbolSourceLookup.resolve(project, request);
     }
 
@@ -72,42 +71,21 @@ public class SymbolSourceLookupTool {
     }
 
     private @Nullable Project resolveProject(SymbolLookupInput input) {
-        if (input.projectName != null && !input.projectName.isBlank()) {
-            Project byName = findProjectByNameOrPath(input.projectName);
-            if (byName != null) {
-                return byName;
-            }
+        if (input.projectPath() != null && !input.projectPath().isBlank()) {
+            Project project = findProjectByPath(input.projectPath());
+            if (project != null)
+                return project;
         }
+
         Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
-        if (openProjects.length == 1) {
+        if (openProjects.length == 1)
             return openProjects[0];
-        }
-        if (input.projectRoot != null && !input.projectRoot.isBlank()) {
-            Project byRoot = findProjectByRoot(input.projectRoot);
-            if (byRoot != null) {
-                return byRoot;
-            }
-        }
+
         return null;
     }
 
-    private @Nullable Project findProjectByNameOrPath(String identifier) {
-        Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
-        for (Project project : openProjects) {
-            if (identifier.equals(project.getName())) {
-                return project;
-            }
-            String basePath = project.getBasePath();
-            if (basePath != null && Path.of(basePath).toAbsolutePath().normalize().toString()
-                    .equals(Path.of(identifier).toAbsolutePath().normalize().toString())) {
-                return project;
-            }
-        }
-        return null;
-    }
-
-    private @Nullable Project findProjectByRoot(String rootPath) {
-        Path root = Path.of(rootPath);
+    private @Nullable Project findProjectByPath(String projectPath) {
+        Path root = Path.of(projectPath);
         VirtualFile vf = LocalFileSystem.getInstance().findFileByNioFile(root);
         if (vf == null) {
             vf = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root);
@@ -130,19 +108,31 @@ public class SymbolSourceLookupTool {
         return null;
     }
 
-    public static final class SymbolLookupInput {
-        public String projectName;
-        public String projectRoot;
-        public String symbolName;
-        public String methodName;
-        public List<String> methodParamTypes;
-        public String fieldName;
-        public String moduleName;
-        public Integer lineStart;
-        public Integer lineEnd;
-        public Boolean preferSource;
-        public Boolean includeInherited;
-        public Boolean forceDecompiled;
-        public Boolean allowResourceLookup;
-    }
+    public record SymbolLookupInput(
+            @ToolParam(description = "The project path. Always provide this value if known to reduce" +
+                    " ambiguous calls. If only the current working directory is known, you can use it" +
+                    " as the project path.", required = false)
+            String projectPath,
+            @ToolParam(description = "The FQN or short name of an entity whose source code is requested")
+            String symbolName,
+            @ToolParam(required = false)
+            String methodName,
+            @ToolParam(required = false)
+            List<String> methodParamTypes,
+            @ToolParam(required = false)
+            String fieldName,
+            @ToolParam(required = false)
+            String moduleName,
+            @ToolParam(description = "The optional 1-based first line number", required = false)
+            Integer lineStart,
+            @ToolParam(description = "The optional 1-based final line number", required = false)
+            Integer lineEnd,
+            @ToolParam(required = false)
+            Boolean preferSource,
+            @ToolParam(required = false)
+            Boolean includeInherited,
+            @ToolParam(required = false)
+            Boolean forceDecompiled,
+            @ToolParam(required = false)
+            Boolean allowResourceLookup) { }
 }

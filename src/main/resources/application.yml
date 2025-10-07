@@ -2,6 +2,7 @@ spring:
   ai:
     mcp:
       server:
+        keep-alive-interval: 30s
         name: intellij-mcp-server
         version: 0.1.0
         type: ASYNC  # Recommended for reactive applications

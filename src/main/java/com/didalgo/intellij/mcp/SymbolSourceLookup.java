@@ -84,7 +84,7 @@ public final class SymbolSourceLookup {
 
         public Request {
             if (symbolName.isBlank()) {
-                throw new IllegalArgumentException("symbolName must not be blank");
+                throw new IllegalArgumentException("`symbolName` must not be blank");
             }
         }
     }
@@ -215,9 +215,9 @@ public final class SymbolSourceLookup {
 
     private static @NotNull Result resolveFromClassCandidates(Project project, Request req, List<PsiClass> classes) {
         List<PsiClass> ordered = orderClassesForBestPick(project, classes, req);
-        PsiClass bestClass = ordered.get(0);
-        PsiElement target = bestClass;
-        SymbolKind kind = SymbolKind.CLASS;
+        PsiClass bestClass = ordered.getFirst();
+        PsiElement target;
+        SymbolKind kind;
         if (req.methodName() != null) {
             List<PsiMethod> methods = new ArrayList<>(Arrays.asList(bestClass.findMethodsByName(req.methodName(), req.includeInherited())));
             if (methods.isEmpty()) {
@@ -226,7 +226,7 @@ public final class SymbolSourceLookup {
             List<PsiMethod> filtered = filterByParamTypes(methods, req.methodParamTypes());
             List<PsiMethod> finalSet = filtered.isEmpty() ? methods : filtered;
             finalSet.sort(Comparator.comparing(SymbolSourceLookup::signatureOf));
-            target = finalSet.get(0);
+            target = finalSet.getFirst();
             kind = SymbolKind.METHOD;
             List<Candidate> altMethods = new ArrayList<>();
             altMethods.add(candidateOf(target));
@@ -432,7 +432,7 @@ public final class SymbolSourceLookup {
     }
 
     private static String presentResourceKey(VirtualFile vf, List<String> attempts) {
-        return attempts.isEmpty() ? vf.getUrl() : attempts.get(0);
+        return attempts.isEmpty() ? vf.getUrl() : attempts.getFirst();
     }
 
     private static Snippet buildSnippetForPsi(Project project, PsiFile psiFile, PsiElement element,
