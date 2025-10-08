@@ -2,9 +2,7 @@ package com.didalgo.intellij.mcp;
 
 import com.didalgo.intellij.mcp.SymbolSourceLookupTool.SymbolLookupInput;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.function.FunctionToolCallback;
-import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.boot.SpringBootConfiguration;
@@ -38,25 +36,18 @@ public class McpServerApplication {
     }
 
     @Bean
-    public WeatherService weatherService() {
-        return new WeatherService();
-    }
-
-    @Bean
     public SymbolSourceLookupTool symbolSourceLookupTool() {
         return new SymbolSourceLookupTool();
     }
 
     @Bean
-    public ToolCallbackProvider weatherTools(WeatherService weatherService) {
-        return MethodToolCallbackProvider.builder().toolObjects(weatherService).build();
-    }
-
-    @Bean
     public ToolCallback getSourceCode(SymbolSourceLookupTool tool) {
-        return FunctionToolCallback.builder("ide_get_source_code", tool::resolveSymbol)
+        return FunctionToolCallback.builder("IDE_SearchSourceCode", tool::resolveSymbol)
                 .inputType(SymbolLookupInput.class)
-                .description("Resolves classes, members, or resources to source snippets from an IDE project.")
+                .description("Fetches source code snippets for classes or resources located on the IDE project's" +
+                        " classpath which aren't directly present in your codebase, such as dependency classes," +
+                        " JDK classes, or classpath resources. Use this tool to quickly view their source code," +
+                        " original or decompiled.")
                 .build();
     }
 }

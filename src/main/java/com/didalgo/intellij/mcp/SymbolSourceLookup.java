@@ -80,11 +80,15 @@ public final class SymbolSourceLookup {
             boolean preferSource,
             boolean includeInherited,
             boolean forceDecompiled,
-            boolean allowResourceLookup) {
+            boolean allowResourceLookup,
+            @Nullable Integer responseDepth) {
 
         public Request {
             if (symbolName.isBlank()) {
                 throw new IllegalArgumentException("`symbolName` must not be blank");
+            }
+            if (responseDepth != null && responseDepth < 0) {
+                throw new IllegalArgumentException("`responseDepth` must be greater than or equal to 0");
             }
         }
     }
@@ -152,10 +156,9 @@ public final class SymbolSourceLookup {
     private static @NotNull Result resolveUnderRead(@NotNull Project project, @NotNull Request req) {
         GlobalSearchScope scope = scopeFor(project, req.moduleName());
         JavaPsiFacade facade = JavaPsiFacade.getInstance(project);
-        List<PsiClass> classCandidates = new ArrayList<>();
-        classCandidates.addAll(Arrays.stream(facade.findClasses(req.symbolName(), scope))
+        List<PsiClass> classCandidates = new ArrayList<>(Arrays.stream(facade.findClasses(req.symbolName(), scope))
                 .filter(c -> req.symbolName().equals(c.getQualifiedName()))
-                .collect(Collectors.toList()));
+                .toList());
         if (classCandidates.isEmpty()) {
             String shortName = extractShortName(req.symbolName());
             PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
@@ -175,10 +178,11 @@ public final class SymbolSourceLookup {
                         alternatives.add(candidateOf(project, vf));
                     }
                 }
+                String snippetText = truncateByDepth(resourceResult.snippet.text, req.responseDepth());
                 return new Result(
                         Status.OK,
                         resourceResult.message,
-                        resourceResult.snippet.text,
+                        snippetText,
                         anchor(urlOf(resourceResult.primaryVf),
                                 resourceResult.snippet.startLine,
                                 resourceResult.snippet.endLine,
@@ -248,13 +252,14 @@ public final class SymbolSourceLookup {
                 return problem("Resolved method has no containing file.", req, target, kind);
             }
             Snippet snippet = buildSnippetForPsi(project, psiFile, elementForText, req.lineStart(), req.lineEnd());
+            String snippetText = truncateByDepth(snippet.text, req.responseDepth());
             Candidate primaryCandidate = candidateOf(elementForText);
             return new Result(
                     Status.OK,
                     altMethods.size() > 1
                             ? "Resolved method; multiple overloads exist. Returning best match and listing alternatives."
                             : "Resolved method successfully.",
-                    snippet.text,
+                    snippetText,
                     anchor(urlOf(psiFile), snippet.startLine, snippet.endLine, snippet.startOffset, snippet.endOffset),
                     qualifiedNameOf(target),
                     kind,
@@ -275,7 +280,7 @@ public final class SymbolSourceLookup {
                 return notFoundInside(bestClass, req, "No field named " + req.fieldName() + " found.");
             }
             fields.sort(Comparator.comparing(f -> candidateOf(f).uri()));
-            target = fields.get(0);
+            target = fields.getFirst();
             kind = SymbolKind.FIELD;
             List<Candidate> altFields = new ArrayList<>();
             altFields.add(candidateOf(target));
@@ -293,13 +298,14 @@ public final class SymbolSourceLookup {
                 return problem("Resolved field has no containing file.", req, target, kind);
             }
             Snippet snippet = buildSnippetForPsi(project, psiFile, elementForText, req.lineStart(), req.lineEnd());
+            String snippetText = truncateByDepth(snippet.text, req.responseDepth());
             Candidate primaryCandidate = candidateOf(elementForText);
             return new Result(
                     Status.OK,
                     altFields.size() > 1
                             ? "Resolved field; multiple classpath copies exist. Returning best match and listing alternatives."
                             : "Resolved field successfully.",
-                    snippet.text,
+                    snippetText,
                     anchor(urlOf(psiFile), snippet.startLine, snippet.endLine, snippet.startOffset, snippet.endOffset),
                     qualifiedNameOf(target),
                     kind,
@@ -318,6 +324,7 @@ public final class SymbolSourceLookup {
             return problem("Resolved class has no containing file.", req, elementForText, SymbolKind.CLASS);
         }
         Snippet snippet = buildSnippetForPsi(project, psiFile, elementForText, req.lineStart(), req.lineEnd());
+        String snippetText = truncateByDepth(snippet.text, req.responseDepth());
         Candidate primaryCandidate = candidateOf(elementForText);
         List<Candidate> alternatives = new ArrayList<>();
         alternatives.add(primaryCandidate);
@@ -329,7 +336,7 @@ public final class SymbolSourceLookup {
                 alternatives.size() > 1
                         ? "Resolved class; multiple classpath copies exist. Returning best match and listing alternatives."
                         : "Resolved class successfully.",
-                snippet.text,
+                snippetText,
                 anchor(urlOf(psiFile), snippet.startLine, snippet.endLine, snippet.startOffset, snippet.endOffset),
                 qualifiedNameOf(elementForText),
                 SymbolKind.CLASS,
@@ -404,7 +411,7 @@ public final class SymbolSourceLookup {
                 .comparing((VirtualFile vf) -> !Objects.equals(ownerModule(project, vf), req.moduleName()))
                 .thenComparing(SymbolSourceLookup::isJarFile)
                 .thenComparing(SymbolSourceLookup::urlOf));
-        VirtualFile primary = found.get(0);
+        VirtualFile primary = found.getFirst();
         Snippet snippet = buildSnippetForVirtualFile(project, primary, req.lineStart(), req.lineEnd());
         String message = found.size() > 1
                 ? "Resolved resource; multiple copies on classpath. Returning best match and listing alternatives."
@@ -433,6 +440,65 @@ public final class SymbolSourceLookup {
 
     private static String presentResourceKey(VirtualFile vf, List<String> attempts) {
         return attempts.isEmpty() ? vf.getUrl() : attempts.getFirst();
+    }
+
+    private static String truncateByDepth(@Nullable String text, @Nullable Integer responseDepth) {
+        if (text == null) {
+            return null;
+        }
+        if (responseDepth == null) {
+            return text;
+        }
+        int limit = Math.max(0, responseDepth);
+        StringBuilder truncated = new StringBuilder(text.length());
+        int currentDepth = 0;
+        int skipDepth = 0;
+        boolean truncatedOutput = false;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == '{') {
+                if (skipDepth == 0) {
+                    truncated.append(ch);
+                }
+                currentDepth++;
+                if (currentDepth > limit) {
+                    skipDepth++;
+                    if (skipDepth == 1) {
+                        truncatedOutput = true;
+                        appendEllipsis(truncated, currentDepth);
+                    }
+                }
+            } else if (ch == '}') {
+                if (currentDepth > limit && skipDepth > 0) {
+                    skipDepth--;
+                }
+                currentDepth = Math.max(0, currentDepth - 1);
+                if (skipDepth == 0) {
+                    truncated.append(ch);
+                }
+            } else {
+                if (skipDepth == 0) {
+                    truncated.append(ch);
+                }
+            }
+        }
+        return truncatedOutput ? truncated.toString() : text;
+    }
+
+    private static void appendEllipsis(StringBuilder builder, int depth) {
+        if (builder.isEmpty() || builder.charAt(builder.length() - 1) != '\n') {
+            builder.append('\n');
+        }
+        builder.append(indentation(depth));
+        builder.append("...");
+        builder.append('\n');
+    }
+
+    private static String indentation(int depth) {
+        if (depth <= 0) {
+            return "";
+        }
+        return "    ".repeat(depth);
     }
 
     private static Snippet buildSnippetForPsi(Project project, PsiFile psiFile, PsiElement element,
@@ -527,7 +593,7 @@ public final class SymbolSourceLookup {
             return false;
         }
         String url = virtualFile.getUrl();
-        return url != null && url.startsWith("jar://");
+        return url.startsWith("jar://");
     }
 
     private static String fileUrlOf(PsiElement element) {

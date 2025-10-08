@@ -7,7 +7,6 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.ai.tool.annotation.ToolParam;
 
@@ -45,10 +44,11 @@ public class SymbolSourceLookupTool {
                 input.moduleName(),
                 input.lineStart(),
                 input.lineEnd(),
-                Objects.requireNonNullElse(input.preferSource(), Boolean.TRUE),
-                Objects.requireNonNullElse(input.includeInherited(), Boolean.TRUE),
-                Objects.requireNonNullElse(input.forceDecompiled(), Boolean.FALSE),
-                Objects.requireNonNullElse(input.allowResourceLookup(), Boolean.TRUE));
+                true,
+                true,
+                false,
+                true,
+                input.responseDepth());
         return SymbolSourceLookup.resolve(project, request);
     }
 
@@ -113,7 +113,7 @@ public class SymbolSourceLookupTool {
                     " ambiguous calls. If only the current working directory is known, you can use it" +
                     " as the project path.", required = false)
             String projectPath,
-            @ToolParam(description = "The FQN or short name of an entity whose source code is requested")
+            @ToolParam(description = "FQN or short name of an entity whose source code is requested")
             String symbolName,
             @ToolParam(required = false)
             String methodName,
@@ -123,16 +123,11 @@ public class SymbolSourceLookupTool {
             String fieldName,
             @ToolParam(required = false)
             String moduleName,
-            @ToolParam(description = "The optional 1-based first line number", required = false)
+            @ToolParam(description = "Optional 1-based start line number", required = false)
             Integer lineStart,
-            @ToolParam(description = "The optional 1-based final line number", required = false)
+            @ToolParam(description = "Optional 1-based final line number", required = false)
             Integer lineEnd,
-            @ToolParam(required = false)
-            Boolean preferSource,
-            @ToolParam(required = false)
-            Boolean includeInherited,
-            @ToolParam(required = false)
-            Boolean forceDecompiled,
-            @ToolParam(required = false)
-            Boolean allowResourceLookup) { }
+            @ToolParam(description = "Optional depth limiting nested `{` `}` blocks; deeper levels are" +
+                    " replaced with ellipses.", required = false)
+            Integer responseDepth) { }
 }
